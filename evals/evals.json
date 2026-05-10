@@ -1,0 +1,137 @@
+{
+  "skill_name": "curate",
+  "evals": [
+    {
+      "id": 1,
+      "name": "quick-mode-productive-session",
+      "prompt": "我刚完成了本周的华夏银行CRM需求文档更新工作，整理一下",
+      "expected_output": "触发 Quick 模式，执行5步流程：盘点→识别变更→治理→自检→审计日志。加载 knowledge-matrix + content-matrix（内容变更场景）。审计日志 health_score 为 null。",
+      "assertions": [
+        {"name": "executes_5_steps", "text": "输出包含5个步骤：盘点、识别变更、执行治理、自检、审计日志", "weight": 2},
+        {"name": "loads_correct_refs", "text": "仅加载 knowledge-matrix + content-matrix，未加载 health-scoring/change-matrix", "weight": 1},
+        {"name": "audit_log_format", "text": "审计日志条目包含 ts, mode, pattern_key, action, target, detail, health_score 字段", "weight": 1},
+        {"name": "summary_sections", "text": "输出包含 变更/可晋升/未处理 三个区域", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "deep-mode-full-audit",
+      "prompt": "/curate --deep",
+      "expected_output": "触发 Deep 模式，先告知用户预计时间。输出6维度健康评分报告（完整性/时效性/一致性/精简性/可操作性/组织性），含趋势对比。执行7步流程，含深度去重和晋升评估。审计日志 health_score 有数值。",
+      "assertions": [
+        {"name": "announces_deep_mode", "text": "开始前告知用户'即将执行完整7步审计'", "weight": 1},
+        {"name": "health_score_6_dimensions", "text": "输出6维度评分（完整性20+时效性20+一致性15+精简性15+可操作性15+组织性15=100）", "weight": 2},
+        {"name": "trend_comparison", "text": "健康评分包含趋势对比（与上次Deep模式比较）", "weight": 1},
+        {"name": "deep_dedup", "text": "报告深度去重结果（语义重复/孤儿条目/断裂链接）", "weight": 1},
+        {"name": "promotion_suggestions", "text": "输出晋升建议清单（pattern_key频次统计）", "weight": 1},
+        {"name": "audit_log_has_score", "text": "审计日志条目 health_score 字段为数字（非null）", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "lightweight-path-no-op",
+      "prompt": "这次没做什么特别的工作，收尾一下就好",
+      "expected_output": "检测到'没什么特别的'→轻量路径。跳过步骤2-3，快速自检现有文件是否过期/冲突/膨胀。输出3-5行健康审查摘要。审计日志 action 为 no-op。",
+      "assertions": [
+        {"name": "detects_lightweight", "text": "识别到'没什么特别的'并走轻量路径", "weight": 2},
+        {"name": "skips_steps_2_3", "text": "不执行识别变更和治理操作步骤", "weight": 1},
+        {"name": "no_refs_loaded", "text": "不加载任何参考文件", "weight": 1},
+        {"name": "summary_3_5_lines", "text": "输出3-5行健康审查摘要", "weight": 1},
+        {"name": "noop_audit", "text": "审计日志 action 字段为 no-op", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "contradiction-handling",
+      "prompt": "我发现 memory 里有两条关于数据源的记录说法不一样，整理一下",
+      "expected_output": "识别矛盾条目但不自主选择保留哪条。将两个版本列入'未处理'区域让用户决定。生成 Pattern-Key 标注矛盾。在审计日志中记录。",
+      "assertions": [
+        {"name": "no_autonomous_choice", "text": "不自主选择保留哪个版本，而是将选择权交给用户", "weight": 2},
+        {"name": "lists_in_unresolved", "text": "矛盾条目列在'未处理'区域", "weight": 1},
+        {"name": "generates_pattern_key", "text": "为矛盾生成 Pattern-Key", "weight": 1},
+        {"name": "audit_logs_contradiction", "text": "审计日志记录矛盾检测", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "preview-before-execution",
+      "prompt": "这次改动比较多，帮我整理，但先让我看看会改什么再执行",
+      "expected_output": "触发 Quick 模式，在 Step 3 输出操作计划表（#/操作/目标文件/Pattern-Key/理由），等待用户确认后再执行 Edit/Write。",
+      "assertions": [
+        {"name": "outputs_plan_table", "text": "输出操作计划表（含 #, 操作, 目标文件, Pattern-Key, 理由 列）", "weight": 2},
+        {"name": "waits_for_confirmation", "text": "等待用户确认后再执行文件修改", "weight": 2},
+        {"name": "no_edits_before_confirm", "text": "确认前不执行任何 Edit/Write 操作", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "anti-pattern-detection",
+      "prompt": "整理一下",
+      "expected_output": "检测 CLAUDE.md 中的 blockquote 历史叙事、docs 复述、过期通知，以及 memory 中的事故膨胀、废弃标记、已完成待办。每种生成正确 Pattern-Key。清理在 Phase 1 完成。",
+      "assertions": [
+        {"name": "detects_blockquote_narrative", "text": "识别 blockquote 历史叙事反模式", "weight": 1},
+        {"name": "detects_doc_duplication", "text": "识别 docs/ 内容复述反模式", "weight": 1},
+        {"name": "detects_stale_markers", "text": "识别已废弃/已取代标记", "weight": 1},
+        {"name": "correct_pattern_keys", "text": "反模式使用 anti-patterns.md 中定义的 Pattern-Key", "weight": 1},
+        {"name": "phase1_cleanup", "text": "反模式清理在 Phase 1（精简阶段）完成", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "cross-type-interaction",
+      "prompt": "整理一下",
+      "expected_output": "识别混合变更（工具同时影响编码和内容），加载 change-matrix + content-matrix 两个文件。追踪工具变更对编码知识和内容创作两个方向的影响。",
+      "assertions": [
+        {"name": "loads_both_matrices", "text": "混合变更同时加载 change-matrix 和 content-matrix", "weight": 2},
+        {"name": "traces_both_directions", "text": "追踪变更对编码和内容两个方向的影响", "weight": 1},
+        {"name": "cross_type_link", "text": "识别 knowledge-matrix 中的跨类型关联（如工具经验→编码知识）", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 8,
+      "name": "large-project-handling",
+      "prompt": "整理一下",
+      "expected_output": "检测到 >50 个 .md 文件时启用大型项目模式，使用 find -newer 或 -mtime 仅扫描近期变更。输出提示'大型项目模式：仅扫描近期变更，建议定期 --deep 全量审计'。",
+      "assertions": [
+        {"name": "uses_filtered_scan", "text": "使用 find -newer/-mtime 过滤，不全量读取所有文件", "weight": 2},
+        {"name": "outputs_large_project_note", "text": "摘要包含大型项目模式提示", "weight": 1},
+        {"name": "core_checks_still_run", "text": "核心自检项仍完整执行", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 9,
+      "name": "new-project-no-claudemd",
+      "prompt": "/curate",
+      "expected_output": "无 CLAUDE.md 时不崩溃。触发'全新项目'特殊情况。无 memory/ 目录时跳过记忆扫描。无 curate-history.jsonl 时创建新文件。",
+      "assertions": [
+        {"name": "no_crash_missing_files", "text": "缺失文件时不报错或崩溃", "weight": 2},
+        {"name": "skips_memory_scan", "text": "无 memory/ 目录时跳过记忆扫描步骤", "weight": 1},
+        {"name": "creates_audit_log", "text": "无 curate-history.jsonl 时创建新文件", "weight": 1},
+        {"name": "suggests_structure", "text": "有可交付成果时建议创建基础文档结构", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 10,
+      "name": "promotion-evaluation",
+      "prompt": "/curate --deep",
+      "expected_output": "从 curate-history.jsonl 统计 pattern_key 频次。>=3次的候选评估持久性和受众。输出晋升建议清单，不自动执行，等用户确认。临时状态（如维护时间戳）不应晋升。",
+      "assertions": [
+        {"name": "counts_pattern_key_frequency", "text": "正确统计 pattern_key 出现次数", "weight": 1},
+        {"name": "persistence_judgment", "text": "临时状态（如维护时间戳）正确判断为不应晋升", "weight": 1},
+        {"name": "audience_judgment", "text": "正确区分项目级和全局级", "weight": 1},
+        {"name": "no_auto_promotion", "text": "晋升操作需用户确认，不自动执行", "weight": 1},
+        {"name": "output_format", "text": "晋升建议清单包含：pattern_key、频次、建议目标、理由", "weight": 1}
+      ],
+      "files": []
+    }
+  ]
+}
