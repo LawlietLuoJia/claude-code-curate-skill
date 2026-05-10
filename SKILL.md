@@ -150,6 +150,21 @@ Deep 模式额外项：
 
 如果用户没有指定 `--deep`，默认走 Quick 模式。
 
+### 参考文档加载策略（Quick/Deep 共用）
+
+按需读取，不预加载。不要"以防万一"全读——每份 reference 约 100-130 行，多读一份就多消耗一份 context。
+
+| 条件 | 读取 | 跳过 |
+|------|------|------|
+| 任何变更 | knowledge-matrix.md | — |
+| 涉及去重/分类判断 | +promotion-rules.md | — |
+| 编码变更 | +change-matrix.md | content-matrix.md |
+| 内容变更 | +content-matrix.md | change-matrix.md |
+| 混合变更 | +change-matrix.md +content-matrix.md | — |
+| 纯产出索引/简单决策 | — | promotion-rules + 两个 matrix 都跳过 |
+| Step 0 发现超尺寸 | +anti-patterns.md | — |
+| Quick 模式 | — | health-scoring.md |
+
 ---
 
 ## Quick 模式（5 步）
@@ -190,20 +205,7 @@ Deep 模式额外项：
 
 **跳过条件**：对话中未产生任何 5 类信号（产出物、决策、发现、知识更新、待办），且无用户指定治理目标。
 
-#### 参考文档加载（按需读取，不预加载）
-
-在执行以下分析前，先根据变更类型决定读取哪些参考文档。不要"以防万一"全读——每份 reference 约 100-130 行，多读一份就多消耗一份 context。
-
-| 条件 | 读取 | 跳过 |
-|------|------|------|
-| 任何变更 | knowledge-matrix.md | — |
-| 涉及去重/分类判断 | +promotion-rules.md | — |
-| 编码变更 | +change-matrix.md | content-matrix.md |
-| 内容变更 | +content-matrix.md | change-matrix.md |
-| 混合变更 | +change-matrix.md +content-matrix.md | — |
-| 纯产出索引/简单决策 | — | promotion-rules + 两个 matrix 都跳过 |
-| Step 0 发现超尺寸 | +anti-patterns.md | — |
-| Quick 模式 | — | health-scoring.md |
+按「参考文档加载策略」选择加载的参考文件。
 
 #### 分析流程
 
@@ -358,17 +360,7 @@ Deep 模式是完整的 7 步独立流程。每步均自含说明。流程：盘
 
 根据第二步的健康评分选择治理策略，然后识别变更、执行治理。
 
-**参考文档加载**（按需读取，不预加载）：
-
-| 条件 | 读取 | 跳过 |
-|------|------|------|
-| 任何变更 | knowledge-matrix.md | — |
-| 涉及去重/分类判断 | +promotion-rules.md | — |
-| 编码变更 | +change-matrix.md | content-matrix.md |
-| 内容变更 | +content-matrix.md | change-matrix.md |
-| 混合变更 | +change-matrix.md +content-matrix.md | — |
-| 纯产出索引/简单决策 | — | promotion-rules + 两个 matrix 都跳过 |
-| Step 0 发现超尺寸 | +anti-patterns.md | — |
+按「参考文档加载策略」选择加载的参考文件。
 
 **编辑原则**：遵循上方「编辑原则（全模式通用）」。
 
