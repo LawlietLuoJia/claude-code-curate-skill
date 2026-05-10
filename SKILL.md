@@ -31,7 +31,12 @@ description: >
 
 ## 轻量路径（对话无实质产出时自动启用）
 
-当盘点后发现"无新增知识且无文件变更"时（用户说"这次没做什么"或盘点对话内容为空），跳过第二步到第三步，直接执行：
+**触发条件**（三点全满足才走轻量路径，任一不满足→Quick 模式）：
+1. 本次对话未产生任何产出物文件（无新文件、无文件修改）
+2. 本次对话未做出任何影响知识体系的决策（无方向选择、无方案确认）
+3. 盘点清单中无文件变更信号（无 .md 文件自上次 curate 后被修改）
+
+跳过第二步到第三步，直接执行：
 1. 快速自检：检查现有文件是否有过期/矛盾/膨胀
 2. 输出健康审查摘要（3-5 行）
 3. 写入审计日志（action: "no-op"）
@@ -207,7 +212,13 @@ Deep 模式额外项：
 
 2. **分类**：根据知识类型确定存储位置和影响范围。分类时必须读取 [references/knowledge-matrix.md](references/knowledge-matrix.md)。
 3. **影响分析**：根据上方的加载清单，按变更类型读取对应的变更矩阵（change-matrix.md 或 content-matrix.md），判断该变更影响了哪些关联文件和具体段落需要同步更新。纯产出索引或简单决策不需要读任何变更矩阵，直接跳到去重检查。
-4. **去重检查**：为每项新知识生成 Pattern-Key（格式：`{类别}:{核心主题}:{关键属性}`），搜索已有文件中是否有匹配。Pattern-Key 类别定义和生成规则见 [references/promotion-rules.md](references/promotion-rules.md)。**复用已有 key，不要重新造**。新 key 在 curate-history.jsonl 中出现 ≥3 次时，下次 Deep 模式加入示例库。
+4. **去重检查**：为每项新知识生成 Pattern-Key，搜索已有文件中是否有匹配。Pattern-Key 类别定义和生成规则见 [references/promotion-rules.md](references/promotion-rules.md)。**复用已有 key，不要重新造**。新 key 在 curate-history.jsonl 中出现 ≥3 次时，下次 Deep 模式加入示例库。
+
+   **Pattern-Key 格式**：`{scope}:{subject}:{attribute}`
+   - `tool:uv:package-management` — 工具经验，跨项目适用
+   - `format:changelog:blockquote` — 反模式，CLAUDE.md 历史叙事
+   - `project:prd-version` — 项目事实，版本追踪
+   - `skill:curate:trigger` — Skill 使用经验
 5. **交叉验证**：变更涉及版本号或关键事实时，跨文件比对一致性（如 MEMORY.md 和 outputs.md 中的版本号引用、CLAUDE.md 中的技术栈版本 vs 实际环境）。发现不一致时生成 Pattern-Key 并修正过时条目。
 
 ### 第三步：执行治理操作
@@ -343,9 +354,9 @@ Deep 模式是完整的 7 步独立流程。每步均自含说明。流程：盘
 
 **编辑原则**：遵循上方「编辑原则（全模式通用）」。
 
-- **健康分 < 50（repair-only）**：只做过期清理、矛盾修复、断裂链接修复。不做晋升、不做知识体系优化。
-- **健康分 50-75（harden）**：在 repair 基础上增加精简性治理、去重、索引补全。
-- **健康分 > 75（balanced）**：全量治理，包括晋升评估和知识体系优化建议。
+- **健康分 < 50（repair-only）**：只做：删除过期条目、修复断裂链接、修正矛盾版本号。不做：晋升评估、知识体系优化建议、跨文件重构。
+- **健康分 50-75（harden）**：在 repair 基础上增加：合并重复条目、补全缺失 frontmatter、精简超尺寸文件。
+- **健康分 > 75（balanced）**：全量治理：以上全部 + 晋升评估 + 跨文件一致性检查 + 知识体系优化建议。
 
 这确保治理精力花在刀刃上——知识体系状态差时不浪费时间做"锦上添花"。
 
