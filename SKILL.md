@@ -4,8 +4,10 @@ description: >
   Knowledge governance skill for non-programming and programming projects alike —
   audits, deduplicates, scores, and promotes knowledge across memory files, CLAUDE.md,
   docs/, outputs/, context/, and all project knowledge assets. Gets smarter over time
-  via health scoring, pattern-key dedup, knowledge promotion, and audit trails.
+  via health scoring, pattern-key dedup, knowledge promotion, audit trails, and
+  closed-loop strategy effectiveness feedback.
   在会话结束后手动触发，对项目的所有知识资产进行治理：健康评分、去重、晋升、审计。
+  策略选择基于历史治理效果的闭环反馈，越用越精准。
   MUST trigger when the user says: "/curate", "/sync", "整理一下", "收尾", "归档",
   "同步知识", "同步一下", "治理一下", "盘点知识", "更新记忆", "梳理一下", "整理文档",
   "这个阶段做完了", "新人能直接上手", "sync up", "sync knowledge", "tidy up",
@@ -110,6 +112,8 @@ description: >
 - [ ] frontmatter 格式与项目其他文件一致
 - [ ] 受众匹配正确（CLAUDE.md 写项目约定，docs/ 写外部指南，memory/ 写 Agent 个人知识）
 - [ ] 跨项目检查：本次对话是否跨项目？如果是，上下游的 docs 都要对齐
+- [ ] **治理有效性**：若第二步识别到变更信号但第三步执行操作数为 0，在审计日志中标注 `action: "no-change-signal-detected"`。连续 3 次以上出现此标记 → 治理规则可能过于保守，下次 Deep 模式考虑调整策略
+- [ ] **影响半径确认**：blast_radius.level = "high" 时已触发用户确认（预览门限 + 策略降级）
 
 Deep 模式额外项：
 - [ ] 健康评分报告已在修改前输出
@@ -191,6 +195,7 @@ Deep 模式额外项：
 3. **读取治理历史**：
    - 读 `~/.claude/skills/curate/assets/curate-history.jsonl`（如果存在）
    - 取最后 10 条记录，了解近期治理活动
+   - **策略有效性提取**（约5秒，数据已在内存中）：从已读取的记录中，按 pattern_key 类别分组统计各策略的 `outcome` 分布。计算每个 {类别, 策略} 组合的 verified 率（outcome="verified" 次数 / 有 outcome 的总次数）。存为内部变量 `strategy_hint = {category: {strategy: verified_rate, ...}, ...}`，供第三步参考。不足 5 条记录的类别不计算（数据量不够，不可靠）。
    - 对比当前文件列表与上次盘点，标记新增/变更/删除的文件
 
 4. **回顾本次对话**：提取做了什么工作、产生了什么产出、做了什么决策、发现了什么新知识
@@ -227,7 +232,34 @@ Deep 模式额外项：
    - `format:changelog:blockquote` — 反模式，CLAUDE.md 历史叙事
    - `project:prd-version` — 项目事实，版本追踪
    - `skill:curate:trigger` — Skill 使用经验
+
+   **洞察胶囊**（Pattern-Key 非首次出现时）：在审计日志中生成 `capsule` 字段——1-2 句提炼：这个知识在本次实践中确认了什么事实或结论。格式：`{事实}，{经验/结论}`。
+
+   **验证信号**：回顾本次对话，判断该知识是否在本会话中被实际应用（影响了行为或决策）。如果是，在审计日志中设 `validated: true`。判断依据：
+   - 知识在本会话中被实际使用（如因为知道"用 uv 不用 pip"，主动选择了 uv）→ `true`
+   - 知识仅被记录/合并/清理，未被实际应用 → 不设此字段
+   - 首次出现的知识 → 不设此字段
+
+   **效果反馈**：当 Pattern-Key 在历史记录中已有治理操作（action 为 promote/archive/delete/merge）时，判断上次决策的效果：
+   - 知识在后续使用中被确认有效 → `outcome: "verified"`
+   - 知识内容已与当前状态不符 → `outcome: "stale"`
+   - 治理决策与当前发现矛盾 → `outcome: "conflicting"`
+   - 上次操作为纯去重或首次出现 → 不设此字段
+
+   **进化信号识别**：当 Pattern-Key 的 recurrence >= 3 时，按 promotion-rules.md「进化标记」章节的识别信号表检测是否有新学习。仅在确实有新发现时记录 evolution 子字段（refined/context/avoid），无增量则跳过。
+
 5. **交叉验证**：变更涉及版本号或关键事实时，跨文件比对一致性（如 MEMORY.md 和 outputs.md 中的版本号引用、CLAUDE.md 中的技术栈版本 vs 实际环境）。发现不一致时生成 Pattern-Key 并修正过时条目。
+
+6. **优先级排序**：为每个 pattern_key 计算 priority_weight：
+   ```
+   priority_weight = recurrence_count × (1 + 0.2 × validated_count - 0.3 × volatile_count)
+   ```
+   其中 volatile_count = 历史中 outcome 为 stale 或 conflicting 的次数。
+   按 priority_weight 从高到低排序后续处理顺序。标记：★ (>3.0 高优先) / ☆ (1.0-3.0 中) / 无标记 (<1.0 低)。
+
+7. **波动检测**：检查每个 pattern_key 是否满足 volatile 条件（历史记录 >=3 条，stale+conflicting 占比 >= 40%）。
+   - 是 → 在摘要中标记 `⚠️ 波动`，本轮不推荐晋升，建议重写或删除
+   - 否 → 正常处理
 
 ### 第三步：执行治理操作
 
@@ -244,6 +276,35 @@ Deep 模式额外项：
 | 1 | merge | docs/api.md | tool:akshare:datasource | 更新数据源说明 |
 
 等用户确认 "OK" 或 "执行" 后再开始操作。如果用户说 "不用问了直接做"，本次会话后续跳过预览。
+
+**影响半径**（Blast Radius）：在执行前估算本次治理的影响范围。对每项操作统计涉及的文件数和预估行数变更，计算影响等级：
+- `low`（1-2 文件，≤30 行）→ 正常执行
+- `medium`（3-5 文件，≤100 行）→ 触发预览门限
+- `high`（>5 文件或 >100 行）→ 触发预览门限 + 策略降级（balanced→harden，更保守执行）
+
+此规则替代原来的"3项以上变更触发预览"，改为按影响范围而非数量判断。记录到审计日志的 `blast_radius` 字段。
+
+**策略标签**（Strategy Tag）：为每个治理动作标注策略意图：
+- `repair`（修复）：删除过时、修正错误、修复断裂链接
+- `optimize`（优化）：合并重复、精简冗余、去重、晋升
+- `innovate`（创新）：新增知识条目、创建新文档
+- `explore`（探索）：识别缺口、发现孤立文件、评估健康
+
+记录到审计日志的 `strategy` 字段。在输出摘要中按策略标签分组展示，替代按操作类型统计。
+
+**策略偏好**（Strategy Hint，闭环反馈）：
+决策树给出多个可选操作时（如"可合并"或"可重写"），参考第一步提取的 strategy_hint：
+1. 查该 Pattern-Key 自身的策略有效性（同 pattern_key 的历史 outcome）
+2. 无自身数据时，查该类别的策略有效性（同 category 的聚合数据）
+3. 偏好验证率最高的策略对应的操作类型
+4. 无任何数据时，按默认决策树执行（不偏好任何策略）
+
+示例：Pattern-Key `tool:xxx:yyy`，类别 `tool`。strategy_hint 显示 tool 类别的 verified_rate：optimize=80%, repair=20% → 当决策树允许 merge 或 delete 时，偏好 merge。
+
+**停滞回避**（Stagnation Avoidance）：在决策树执行前，检查 Pattern-Key 是否有 `stagnation_signal`：
+- 有 `stagnation_signal` 的 Pattern-Key → **策略降级**：innovate→repair, optimize→repair, repair→skip
+- 有 `stagnation_signal` 的 Pattern-Key → **禁止晋升**，即使 recurrence 满足条件
+- 降级后在 detail 中说明降级原因（如"连续2次stale，降级为repair"）
 
 **两阶段执行顺序**（不能合并）：
 
@@ -293,21 +354,75 @@ Deep 模式额外项：
 
 1. **写入审计日志**：对每项操作，向 `~/.claude/skills/curate/assets/curate-history.jsonl` 追加一行 JSON：
    ```json
-   {"ts":"2026-04-29T17:30:00+08:00","mode":"quick","pattern_key":"tool:soffice:unavailable","action":"archive","target":"memory/tech-notes.md","detail":"归档过时备忘：已安装LibreOffice","health_score":null}
+   {"ts":"2026-04-29T17:30:00+08:00","mode":"quick","pattern_key":"tool:soffice:unavailable","action":"archive","target":"memory/tech-notes.md","detail":"归档过时备忘：已安装LibreOffice","health_score":null,"capsule":"soffice 在 macOS 上持续不可用，rsvg-convert 是稳定替代方案","validated":true,"outcome":"stale"}
    ```
+
+   **标记检查**（写入前执行，确定性判断，约10秒）：
+	   - 查询 curate-history.jsonl 中该 pattern_key 的历史统计（recurrence_count, validated_count, capsule, trust_tier, outcome 序列）
+	   - **distill_ready**：recurrence >= 5 AND trust_tier = "proven" AND 有 capsule → 设为 `true`
+	   - **prime**（进化活跃）：trust_tier = "proven" AND 最近 3 次记录中至少有 1 次 evolution 子字段变化（refined/context/avoid 新增或变更）或 capsule 内容变化 → 运行时计算，不存储到日志
+	   - **stagnation_signal**：
+	     - 最近2条同 pattern_key 的 outcome 都是 "stale" → `"repeated_stale"`
+	     - 最近2条同 pattern_key 的 outcome 都是 "conflicting" → `"repeated_conflict"`
+	     - recurrence >= 3 AND validated_count = 0 AND 无 capsule → `"no_progress"`
+	   - **platform_signal**（平台期信号）：
+	     - 最近4条同 pattern_key 的 outcome 全为 "verified" 且无 evolution 子字段变化 → `"stable_plateau"`
+	     - Quick 和 Deep 模式均检测
+	   - **saturated_signal**（成熟饱和信号，仅 Deep）：
+	     - 最近6条 outcome 全为 "verified" 且 trust_tier = "proven" 且 verified_rate >= 80% → `"success_saturated"`
+	   - 标记互不排斥，可同时存在。stagnation_signal（负面停滞）和 platform_signal（正面平台期）可在不同 pattern_key 上共存；同一 pattern_key 上负面/正面信号互斥
+
+	   **字段说明**：
+   - `capsule`（可选，Pattern-Key 非首次出现时生成）：1-2 句提炼洞察，格式 `{事实}，{经验/结论}`。用于 Deep 模式晋升评估时判断知识成熟度
+   - `validated`（可选，布尔值）：该知识是否在本会话中被实际应用（影响了行为/决策）。用于 Deep 模式晋升评估时区分"记录频次"和"实践验证"
+   - `outcome`（可选，字符串）：上次对该 pattern_key 治理决策的效果反馈。值：`"verified"`（决策正确）、`"stale"`（内容过时）、`"conflicting"`（与新信息矛盾）。仅在该 pattern_key 有历史治理操作时生成
+   - `strategy`（可选，字符串）：本次治理动作的策略意图。值：`"repair"`（修复错误/过时）、`"optimize"`（优化结构/效率）、`"innovate"`（新增知识）、`"explore"`（探索/评估）
+   - `blast_radius`（可选，对象）：本次治理的影响范围。`files`（涉及文件数）、`lines`（变更行数）、`level`（`low`/`medium`/`high`）。Quick 模式仅记录 level，Deep 模式记录完整对象
+   - `evolution`（可选，对象，recurrence >= 3 时）：跨应用的学习积累。`refined`（知识精炼结果）、`context`（适用条件）、`avoid`（已知失败路径）。Quick 模式仅在有新发现时记录1个子字段，Deep 模式在晋升评估时完整记录
+   - `distill_ready`（可选，布尔值）：该 Pattern-Key 已积累足够验证数据，可作为模式蒸馏的候选输入。条件：recurrence >= 5 AND trust_tier = "proven" AND 有 capsule。Quick 模式仅标记，Deep 模式执行蒸馏
+   - `stagnation_signal`（可选，字符串枚举）：该 Pattern-Key 的近期状态信号。**负面停滞**：`"repeated_stale"`（连续2次 outcome="stale"）、`"repeated_conflict"`（连续2次 outcome="conflicting"）、`"no_progress"`（recurrence>=3 但 validated=0 且无 capsule）——用于策略降级和根因诊断。**正面平台期**：`"stable_plateau"`（连续>=4次 verified 且无 evolution 变化，Quick+Deep）、`"success_saturated"`（连续>=6次 verified 且 proven 且 verified_rate>=80%，Deep only）——用于识别高价值固化候选（治理洞见/配方/docs 文档化）
 
 2. **输出变更摘要**（给用户看）：
    ```
    ## Curate Quick 完成
 
-   ### 变更
-   - 更新：xxx（原因）
-   - 去重：xxx（合并到已有条目）
-   - 归档：xxx（原因）
-   - 删除：xxx（原因）
+   ### 变更（按策略标签分组）
+   - repair：xxx（原因）
+   - optimize：xxx（合并到已有条目）
+   - innovate：xxx（原因）
+   - explore：xxx（原因）
 
    ### 可晋升
-   - [类别:主题:属性] 已出现 N 次，下次 --deep 时建议晋升
+   - ★ [类别:主题:属性] trust_tier=proven，出现N次，验证M次
+   - ☆ [类别:主题:属性] trust_tier=emerging，出现N次，需确认
+   - ⚠️ 波动: [类别:主题:属性] 出现N次，M次stale/conflicting，建议重写或删除
+
+   ### 进化观察
+   > 从 curate-history.jsonl 中过滤 pattern_key，按进化状态分组展示。
+
+   **🟢 watch（新验证，关注下次重复）**：
+   > recurrence=1 且 validated=true 的 pattern_key — 首次出现就被实践验证，高进化潜力
+   - [tool:xxx:yyy] validated:1，第1次出现
+   - 无符合条件时显示"无"
+
+   **🟡 approaching（接近晋升，recurrence 2-3）**：
+   > recurrence>=2 且未晋升的 pattern_key，按信任程度排序（validated > 有capsule > 无capsule）
+   - [tool:xxx:yyy] 2次，validated:1，capsule:有 → 接近晋升门槛
+   - [format:xxx:zzz] 2次，validated:0，capsule:无 → 待验证
+   - 无符合条件时显示"无"
+
+   **⬛ stagnant（停滞）**：
+   > recurrence>=3 且 validated=0 且 capsule=无 — 从未被使用，无洞察积累
+   - 无符合条件时显示"无"
+
+   **⬜ plateau（平台期）**：
+   > 连续>=4次 verified 且无 evolution 变化 — 知识过于稳定，考虑提升为治理洞见或配方
+   - 无符合条件时显示"无"
+
+   **💎 prime（进化活跃）**：
+   > trust_tier=proven 且最近有 evolution/capsule 变化 — 仍在积累学习，值得投入进化精力
+   - [tool:xxx:yyy] proven，最近 evolution.refined 更新 → 下次关注 context/avoid 补充
+   - 无符合条件时显示"无"
 
    ### 未处理
    - xxx（需要用户确认）
@@ -368,6 +483,13 @@ Deep 模式是完整的 7 步独立流程。每步均自含说明。流程：盘
 - **健康分 50-75（harden）**：在 repair 基础上增加：合并重复条目、补全缺失 frontmatter、精简超尺寸文件。
 - **健康分 > 75（balanced）**：全量治理：以上全部 + 晋升评估 + 跨文件一致性检查 + 知识体系优化建议。
 
+**策略偏好同样适用**：在上述策略层级内，具体操作的选择仍受 strategy_hint 影响（同 Quick Step 3 的策略偏好机制）。
+
+**停滞回避**（Deep 版本）：对有 `stagnation_signal` 的 Pattern-Key 执行增强处理：
+- `repeated_stale` → 检查知识是否已永久失效（如工具已被替代、环境已变更），是则归档，否则标注"等待下次验证"
+- `repeated_conflict` → 标注为"需用户决策"，在治理报告中列出矛盾点供用户选择
+- `no_progress` → 进入停滞诊断流程（复用第五步的4种诊断），在本步先做初步分类
+
 这确保治理精力花在刀刃上——知识体系状态差时不浪费时间做"锦上添花"。
 
 ### 第四步：深度去重扫描
@@ -389,24 +511,38 @@ Deep 模式是完整的 7 步独立流程。每步均自含说明。流程：盘
 读取 [references/promotion-rules.md](references/promotion-rules.md)，执行晋升评估。
 
 1. 从 `curate-history.jsonl` 中统计每个 pattern_key 的出现次数
-2. **晋升门槛**：同一 pattern_key 出现 ≥ 3 次，且内容非临时状态（"soffice 不可用"是临时，"用 uv 不用 pip"是持久）。出现 < 3 次的不评估晋升
-3. 出现 ≥ 3 次的模式，评估是否满足晋升条件：
-   - **持久性**：知识本身不是临时状态（如"soffice 不可用"是临时，"用 uv 不用 pip"是持久）
-   - **受众**：仅当前项目需要 → 项目级；所有项目都需要 → 全局
+2. **晋升评估流程**（按 promotion-rules.md 的晋升条件、活跃度评估、信任分级执行）：
+   - 晋升门槛：频次 ≥ 3，持久性、一致性、受众判断（详见 PR「晋升条件」章节）
+   - 信任评估：trust_score、trust_tier、volatile 检测（详见 PR「活跃度评估」章节）
+   - 进化标记：检查 evolution 子字段完整度（详见 PR「进化标记」章节）
+   - 效果反馈：verified 占比 >= 50% 的 proven 知识标记"经验证可靠"双标签
 3. **输出晋升建议清单**（不自动执行，等用户确认）：
    ```
    📋 知识晋升建议
 
-   1. [tool:uv:package-management] 出现5次 → 建议晋升到全局 CLAUDE.md
-      理由：跨项目适用的包管理规则
+   1. [tool:uv:package-management] 出现5次(validated:2, outcome:verified 3次) → 建议晋升到全局 CLAUDE.md
+      理由：跨项目适用的包管理规则，2次实践验证 [经验证可靠]
       确认？(y/n)
 
-   2. [project:prd-version] 出现3次 → 建议晋升到项目 CLAUDE.md
+   2. [project:prd-version] 出现3次(validated:0,capsule:有) → 建议晋升到项目 CLAUDE.md
       理由：PRD 版本信息对项目持续有价值
       确认？(y/n)
+
+   ⚠️ 疑似停滞（已诊断）:
+   3. [tool:xxx:yyy] 出现3次(validated:0,capsule:无)
+      诊断：内容漂移 — 历史记录中描述持续变化（从"尝试A"到"改用B"到"最终C"）
+      建议：等待内容稳定后再评估，下1次出现时重新确认
+
+   4. [format:old-workflow:deprecated] 出现4次(validated:0,capsule:无)
+      诊断：真正停滞 — 4次记录内容几乎相同，从未被实际使用
+      建议：归档（删除源文件中的条目）
    ```
 
+   **停滞诊断**（对 recurrence>=3 且 validated=0 且 capsule=无 的条目）：执行 promotion-rules.md 定义的停滞诊断流程（4种诊断类型 + 判断流程）。
+
 4. 用户确认后执行晋升，将内容写入目标文件并从源文件中标记或删除
+
+5. **模式蒸馏（Synthesis Scan）**：执行 promotion-rules.md 定义的模式蒸馏流程（触发条件、执行步骤、输出格式、写入规则）。无 `distill_ready=true` 的 Pattern-Key 时跳过，在报告中标注"无符合条件的蒸馏候选"。
 
 ### 第六步：自检
 
@@ -420,34 +556,7 @@ Deep 模式是完整的 7 步独立流程。每步均自含说明。流程：盘
 
 审计日志格式与 Quick 相同（每项操作一行 JSON），但 `health_score` 字段填入当前评分。
 
-**输出治理报告**（比 Quick 更详细）：
-```
-## Curate Deep 完成
-
-### 健康评分
-- 本次: 78/100 (B)
-- 上次: 72/100 (B) — ↑6
-
-### 变更
-- 更新：xxx
-- 去重：xxx（合并N条重复）
-- 归档：xxx
-- 删除：xxx
-- 晋升：xxx → [目标位置]
-
-### 深度扫描
-- 语义重复：发现N组，已合并N组
-- 孤儿条目：发现N条，已处理N条
-- 断裂链接：发现N处，已修复N处
-
-### 待关注
-- [时效性] xxx 文件需要审查
-- [精简性] MEMORY.md 接近上限，建议下次拆分
-
-### 下次建议
-- 考虑对 xxx 进行全面重写
-- xxx 知识领域需要补充方法论文档
-```
+**输出治理报告**：完整报告格式见 **[references/deep-output-format.md](references/deep-output-format.md)**，包含：健康评分对比、变更（按策略分组）、深度扫描结果、待关注项、volatile 条目、进化观察（watch/approaching/stagnant/plateau/saturated/prime）、进化与蒸馏、信号分析（停滞+平台期合并）、策略有效性、审计模式分析（能力缺口/策略漂移/跨类别依赖）、治理反思、下次建议。
 
 ---
 
@@ -491,3 +600,5 @@ find <project-root> -maxdepth 3 -name "*.md" -mtime -7 -not -path "*/node_module
 - **[references/content-matrix.md](references/content-matrix.md)** — 通用内容变更影响矩阵
 - **[references/knowledge-matrix.md](references/knowledge-matrix.md)** — 知识类型分类、治理策略、晋升路径
 - **[references/promotion-rules.md](references/promotion-rules.md)** — 知识晋升规则和 Pattern-Key 详细说明
+- **[references/governance-insights.md](references/governance-insights.md)** — Deep 模式蒸馏产出的治理洞见
+- **[references/deep-output-format.md](references/deep-output-format.md)** — Deep 模式完整治理报告格式（按需加载）
