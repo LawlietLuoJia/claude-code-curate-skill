@@ -250,16 +250,8 @@ Deep 模式额外项：
 
 5. **交叉验证**：变更涉及版本号或关键事实时，跨文件比对一致性（如 MEMORY.md 和 outputs.md 中的版本号引用、CLAUDE.md 中的技术栈版本 vs 实际环境）。发现不一致时生成 Pattern-Key 并修正过时条目。
 
-6. **优先级排序**：为每个 pattern_key 计算 priority_weight：
-   ```
-   priority_weight = recurrence_count × (1 + 0.2 × validated_count - 0.3 × volatile_count)
-   ```
-   其中 volatile_count = 历史中 outcome 为 stale 或 conflicting 的次数。
-   按 priority_weight 从高到低排序后续处理顺序。标记：★ (>3.0 高优先) / ☆ (1.0-3.0 中) / 无标记 (<1.0 低)。
-
-7. **波动检测**：检查每个 pattern_key 是否满足 volatile 条件（历史记录 >=3 条，stale+conflicting 占比 >= 40%）。
-   - 是 → 在摘要中标记 `⚠️ 波动`，本轮不推荐晋升，建议重写或删除
-   - 否 → 正常处理
+6. **优先级排序**（启发式）：recurrence >= 2 标★（高优先），历史中有 3+ 次 stale/conflicting 标⚠️（波动）。按 ★ > ⚠️ > 无标记 排序后续处理。
+   Deep 模式使用完整的 priority_weight 公式和定量波动检测阈值，见 Deep 第三步。
 
 ### 第三步：执行治理操作
 
@@ -478,6 +470,12 @@ Deep 模式是完整的 7 步独立流程。每步均自含说明。流程：盘
 按「参考文档加载策略」选择加载的参考文件。
 
 **编辑原则**：遵循上方「编辑原则（全模式通用）」。
+
+**定量分析**（Deep 独有）：识别变更时使用完整的 priority_weight 公式排序和定量波动检测，而非 Quick 模式的启发式规则。
+   ```
+   priority_weight = recurrence_count × (1 + 0.2 × validated_count - 0.3 × volatile_count)
+   ```
+   标记：★ (>3.0 高优先) / ☆ (1.0-3.0 中) / 无标记 (<1.0 低)。波动条件：历史 >=3 条，stale+conflicting 占比 >= 40%。
 
 - **健康分 < 50（repair-only）**：只做：删除过期条目、修复断裂链接、修正矛盾版本号。不做：晋升评估、知识体系优化建议、跨文件重构。
 - **健康分 50-75（harden）**：在 repair 基础上增加：合并重复条目、补全缺失 frontmatter、精简超尺寸文件。
