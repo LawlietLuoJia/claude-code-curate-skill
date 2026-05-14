@@ -1,21 +1,16 @@
 ---
 name: curate
 description: >
-  Knowledge governance skill for non-programming and programming projects alike —
-  audits, deduplicates, scores, and promotes knowledge across memory files, CLAUDE.md,
-  docs/, outputs/, context/, and all project knowledge assets. Gets smarter over time
-  via health scoring, pattern-key dedup, knowledge promotion, audit trails, and
-  closed-loop strategy effectiveness feedback.
-  在会话结束后手动触发，对项目的所有知识资产进行治理：健康评分、去重、晋升、审计。
-  策略选择基于历史治理效果的闭环反馈，越用越精准。
-  MUST trigger when the user says: "/curate", "/sync", "整理一下", "收尾", "归档",
-  "同步知识", "同步一下", "治理一下", "盘点知识", "更新记忆", "梳理一下", "整理文档",
-  "这个阶段做完了", "新人能直接上手", "sync up", "sync knowledge", "tidy up",
-  "tidy up docs", "curate", or any phrase suggesting a knowledge cleanup after a work session.
-  Also trigger when the user reports stale docs, conflicting memories, bloated knowledge files,
-  or wants a systematic review of their project knowledge health. Bare "整理" / "tidy"
-  with prior work context counts — do not under-trigger.
-  Dual mode: Quick (5-step session wrap-up) and Deep (7-step full audit with scoring).
+  Knowledge governance skill — audits, deduplicates, scores, and promotes knowledge across
+  memory, CLAUDE.md, docs, and all project assets. Learns from history via health scoring,
+  pattern-key dedup, knowledge promotion, and closed-loop strategy feedback.
+  会话后触发，治理知识资产：健康评分、去重、晋升、审计，越用越精准。
+  MUST trigger on: "/curate", "/sync", "整理一下", "收尾", "归档", "同步知识",
+  "治理一下", "盘点知识", "更新记忆", "梳理一下", "整理文档", "sync up",
+  "tidy up", "curate", or any phrase suggesting knowledge cleanup after a work session.
+  Also trigger on stale docs, conflicting memories, or bloated knowledge files.
+  Do not under-trigger — bare "整理"/"tidy" with work context counts.
+  Dual mode: Quick (5-step wrap-up) and Deep (7-step full audit with scoring).
 ---
 
 # Curate — 知识治理
