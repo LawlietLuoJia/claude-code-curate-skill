@@ -165,6 +165,8 @@ Deep 模式额外项：
 | Quick 模式 | — | health-scoring.md |
 | 写入审计日志时 | +audit-fields.md | — |
 
+**资源可达性**：若 references/ 下某文件不存在，跳过并标注哪些不可用。不因缺参考文件而中断治理流程。
+
 ---
 
 ## Quick 模式（5 步）
@@ -542,6 +544,10 @@ find <project-root> -maxdepth 3 -name "*.md" -mtime -7 -not -path "*/node_module
 **工具操作失败**（Edit/Write 报错）：跳过失败操作，记录到「未处理」清单，继续处理其余变更。在摘要中明确列出失败项和建议的手动处理方式。不因单个操作失败而中断整个治理流程。
 
 **memory/ 目录不存在**：跳过记忆扫描步骤（第一步的第 2 步），在盘点清单中标注 "无记忆文件（非 Claude Code 项目或首次使用）"，继续处理项目级文件。
+
+**CLAUDE.md 只读**（gitignored / 权限不足 / CI 环境）：降级为仅修改 memory/ 和 docs/，在摘要中标注"CLAUDE.md 只读，已跳过相关修改"。审计日志 `action` 加 `skipped-claudemd` 后缀。
+
+**知识文件循环依赖**（A 引用 B，B 引用 A）：标注循环链路，不自动处理，列入「未处理」供用户决定。在审计日志 `detail` 中记录涉及的文件对。
 
 ## 参考资料
 
