@@ -368,33 +368,17 @@ Deep 模式额外项：
    - ⚠️ 波动: [类别:主题:属性] 出现N次，M次stale/conflicting，建议重写或删除
 
    ### 进化观察
-   > 从 curate-history.jsonl 中过滤 pattern_key，按进化状态分组展示。
+> 从 curate-history.jsonl 中过滤 pattern_key，按进化状态分组展示。无符合条件时显示"无"。
 
-   **🟢 watch（新验证，关注下次重复）**：
-   > recurrence=1 且 validated=true 的 pattern_key — 首次出现就被实践验证，高进化潜力
-   - [tool:xxx:yyy] validated:1，第1次出现
-   - 无符合条件时显示"无"
+| 标记 | 条件 | 示例 |
+|------|------|------|
+| 🟢 watch | recurrence=1 且 validated=true | [tool:xxx:yyy] validated:1，首次出现 |
+| 🟡 approaching | recurrence>=2，未晋升，按 validated > capsule > 无 排序 | [tool:xxx:yyy] 2次，capsule:有 → 接近晋升 |
+| ⬛ stagnant | recurrence>=3 且 validated=0 且 capsule=无 | — |
+| ⬜ plateau | 连续>=4次 verified，无 evolution 变化 | — |
+| 💎 prime | proven 且最近有 evolution/capsule 变化 | [tool:xxx:yyy] proven，evolution.refined 更新 |
 
-   **🟡 approaching（接近晋升，recurrence 2-3）**：
-   > recurrence>=2 且未晋升的 pattern_key，按信任程度排序（validated > 有capsule > 无capsule）
-   - [tool:xxx:yyy] 2次，validated:1，capsule:有 → 接近晋升门槛
-   - [format:xxx:zzz] 2次，validated:0，capsule:无 → 待验证
-   - 无符合条件时显示"无"
-
-   **⬛ stagnant（停滞）**：
-   > recurrence>=3 且 validated=0 且 capsule=无 — 从未被使用，无洞察积累
-   - 无符合条件时显示"无"
-
-   **⬜ plateau（平台期）**：
-   > 连续>=4次 verified 且无 evolution 变化 — 知识过于稳定，考虑提升为治理洞见或配方
-   - 无符合条件时显示"无"
-
-   **💎 prime（进化活跃）**：
-   > trust_tier=proven 且最近有 evolution/capsule 变化 — 仍在积累学习，值得投入进化精力
-   - [tool:xxx:yyy] proven，最近 evolution.refined 更新 → 下次关注 context/avoid 补充
-   - 无符合条件时显示"无"
-
-   ### 未处理
+### 未处理
    - xxx（需要用户确认）
    ```
 
