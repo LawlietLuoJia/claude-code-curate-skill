@@ -168,6 +168,7 @@ Deep 模式额外项：
 | 纯产出索引/简单决策 | — | promotion-rules + 两个 matrix 都跳过 |
 | Step 0 发现超尺寸 | +anti-patterns.md | — |
 | Quick 模式 | — | health-scoring.md |
+| 写入审计日志时 | +audit-fields.md | — |
 
 ---
 
@@ -349,30 +350,7 @@ Deep 模式额外项：
    {"ts":"2026-04-29T17:30:00+08:00","mode":"quick","pattern_key":"tool:soffice:unavailable","action":"archive","target":"memory/tech-notes.md","detail":"归档过时备忘：已安装LibreOffice","health_score":null,"capsule":"soffice 在 macOS 上持续不可用，rsvg-convert 是稳定替代方案","validated":true,"outcome":"stale"}
    ```
 
-   **标记检查**（写入前执行，确定性判断，约10秒）：
-	   - 查询 curate-history.jsonl 中该 pattern_key 的历史统计（recurrence_count, validated_count, capsule, trust_tier, outcome 序列）
-	   - **distill_ready**：recurrence >= 5 AND trust_tier = "proven" AND 有 capsule → 设为 `true`
-	   - **prime**（进化活跃）：trust_tier = "proven" AND 最近 3 次记录中至少有 1 次 evolution 子字段变化（refined/context/avoid 新增或变更）或 capsule 内容变化 → 运行时计算，不存储到日志
-	   - **stagnation_signal**：
-	     - 最近2条同 pattern_key 的 outcome 都是 "stale" → `"repeated_stale"`
-	     - 最近2条同 pattern_key 的 outcome 都是 "conflicting" → `"repeated_conflict"`
-	     - recurrence >= 3 AND validated_count = 0 AND 无 capsule → `"no_progress"`
-	   - **platform_signal**（平台期信号）：
-	     - 最近4条同 pattern_key 的 outcome 全为 "verified" 且无 evolution 子字段变化 → `"stable_plateau"`
-	     - Quick 和 Deep 模式均检测
-	   - **saturated_signal**（成熟饱和信号，仅 Deep）：
-	     - 最近6条 outcome 全为 "verified" 且 trust_tier = "proven" 且 verified_rate >= 80% → `"success_saturated"`
-	   - 标记互不排斥，可同时存在。stagnation_signal（负面停滞）和 platform_signal（正面平台期）可在不同 pattern_key 上共存；同一 pattern_key 上负面/正面信号互斥
-
-	   **字段说明**：
-   - `capsule`（可选，Pattern-Key 非首次出现时生成）：1-2 句提炼洞察，格式 `{事实}，{经验/结论}`。用于 Deep 模式晋升评估时判断知识成熟度
-   - `validated`（可选，布尔值）：该知识是否在本会话中被实际应用（影响了行为/决策）。用于 Deep 模式晋升评估时区分"记录频次"和"实践验证"
-   - `outcome`（可选，字符串）：上次对该 pattern_key 治理决策的效果反馈。值：`"verified"`（决策正确）、`"stale"`（内容过时）、`"conflicting"`（与新信息矛盾）。仅在该 pattern_key 有历史治理操作时生成
-   - `strategy`（可选，字符串）：本次治理动作的策略意图。值：`"repair"`（修复错误/过时）、`"optimize"`（优化结构/效率）、`"innovate"`（新增知识）、`"explore"`（探索/评估）
-   - `blast_radius`（可选，对象）：本次治理的影响范围。`files`（涉及文件数）、`lines`（变更行数）、`level`（`low`/`medium`/`high`）。Quick 模式仅记录 level，Deep 模式记录完整对象
-   - `evolution`（可选，对象，recurrence >= 3 时）：跨应用的学习积累。`refined`（知识精炼结果）、`context`（适用条件）、`avoid`（已知失败路径）。Quick 模式仅在有新发现时记录1个子字段，Deep 模式在晋升评估时完整记录
-   - `distill_ready`（可选，布尔值）：该 Pattern-Key 已积累足够验证数据，可作为模式蒸馏的候选输入。条件：recurrence >= 5 AND trust_tier = "proven" AND 有 capsule。Quick 模式仅标记，Deep 模式执行蒸馏
-   - `stagnation_signal`（可选，字符串枚举）：该 Pattern-Key 的近期状态信号。**负面停滞**：`"repeated_stale"`（连续2次 outcome="stale"）、`"repeated_conflict"`（连续2次 outcome="conflicting"）、`"no_progress"`（recurrence>=3 但 validated=0 且无 capsule）——用于策略降级和根因诊断。**正面平台期**：`"stable_plateau"`（连续>=4次 verified 且无 evolution 变化，Quick+Deep）、`"success_saturated"`（连续>=6次 verified 且 proven 且 verified_rate>=80%，Deep only）——用于识别高价值固化候选（治理洞见/配方/docs 文档化）
+   **标记检查 + 字段定义**：详见 [references/audit-fields.md](references/audit-fields.md)。必填字段：ts, mode, pattern_key, action, target, detail。可选字段（capsule, validated, outcome, strategy, blast_radius, evolution, distill_ready, stagnation_signal）按触发条件生成。
 
 2. **输出变更摘要**（给用户看）：
    ```
@@ -599,4 +577,5 @@ find <project-root> -maxdepth 3 -name "*.md" -mtime -7 -not -path "*/node_module
 - **[references/knowledge-matrix.md](references/knowledge-matrix.md)** — 知识类型分类、治理策略、晋升路径
 - **[references/promotion-rules.md](references/promotion-rules.md)** — 知识晋升规则和 Pattern-Key 详细说明
 - **[references/governance-insights.md](references/governance-insights.md)** — Deep 模式蒸馏产出的治理洞见
+- **[references/audit-fields.md](references/audit-fields.md)** — 审计日志标记检查和字段定义
 - **[references/deep-output-format.md](references/deep-output-format.md)** — Deep 模式完整治理报告格式（按需加载）
