@@ -71,7 +71,7 @@
     {
       "id": 6,
       "name": "anti-pattern-detection",
-      "prompt": "整理一下",
+      "prompt": "CLAUDE.md 里有不少历史叙述段落，还有 docs/ 里和 CLAUDE.md 重复的内容，整理一下",
       "expected_output": "检测 CLAUDE.md 中的 blockquote 历史叙事、docs 复述、过期通知，以及 memory 中的事故膨胀、废弃标记、已完成待办。每种生成正确 Pattern-Key。清理在 Phase 1 完成。",
       "assertions": [
         {"name": "detects_blockquote_narrative", "text": "识别 blockquote 历史叙事反模式", "weight": 1},
@@ -85,7 +85,7 @@
     {
       "id": 7,
       "name": "cross-type-interaction",
-      "prompt": "整理一下",
+      "prompt": "我刚用新工具同时改了代码和文档，整理一下",
       "expected_output": "识别混合变更（工具同时影响编码和内容），加载 change-matrix + content-matrix 两个文件。追踪工具变更对编码知识和内容创作两个方向的影响。",
       "assertions": [
         {"name": "loads_both_matrices", "text": "混合变更同时加载 change-matrix 和 content-matrix", "weight": 2},
@@ -97,7 +97,7 @@
     {
       "id": 8,
       "name": "large-project-handling",
-      "prompt": "整理一下",
+      "prompt": "项目 docs/ 目录下有 60 多个 md 文件，整理一下",
       "expected_output": "检测到 >50 个 .md 文件时启用大型项目模式，使用 find -newer 或 -mtime 仅扫描近期变更。输出提示'大型项目模式：仅扫描近期变更，建议定期 --deep 全量审计'。",
       "assertions": [
         {"name": "uses_filtered_scan", "text": "使用 find -newer/-mtime 过滤，不全量读取所有文件", "weight": 2},
@@ -130,6 +130,184 @@
         {"name": "audience_judgment", "text": "正确区分项目级和全局级", "weight": 1},
         {"name": "no_auto_promotion", "text": "晋升操作需用户确认，不自动执行", "weight": 1},
         {"name": "output_format", "text": "晋升建议清单包含：pattern_key、频次、建议目标、理由", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 11,
+      "name": "knowledge-gap-report-deep",
+      "prompt": "/curate --deep",
+      "expected_output": "Deep 模式健康评分完成后，输出知识缺口报告。按 7 种知识类型统计覆盖率，0 条标记为 ⚠️ 缺口并附建议，1-2 条标记 🔍 偏少，3+ 条标记 ✅ 正常。建议内容与项目类型相关。",
+      "assertions": [
+        {"name": "outputs_gap_report", "text": "健康评分报告末尾包含知识缺口报告（📋 知识缺口报告）", "weight": 2},
+        {"name": "covers_7_types", "text": "报告覆盖全部 7 种知识类型（领域/决策/工具/输出/流程/洞察/编码）", "weight": 1},
+        {"name": "correct_gap_markers", "text": "0条=⚠️缺口+建议, 1-2条=🔍偏少, 3+条=✅正常", "weight": 1},
+        {"name": "contextual_suggestions", "text": "建议内容与项目类型（编码/内容/混合）相关", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 12,
+      "name": "evolution-watch-marker",
+      "prompt": "刚用 uv 安装了新依赖，整理一下",
+      "expected_output": "Quick 模式执行后，在进化观察部分输出 🟢 watch 标识。如果本次产生的 Pattern-Key 是首次出现且被 validated，应出现在 watch 列表中。recurrence=2 的出现在 🟡 approaching 列表中。",
+      "assertions": [
+        {"name": "watch_section_exists", "text": "进化观察包含 🟢 watch 区域", "weight": 2},
+        {"name": "approaching_section_exists", "text": "进化观察包含 🟡 approaching 区域", "weight": 1},
+        {"name": "stagnant_section_exists", "text": "进化观察包含 ⬛ stagnant 区域", "weight": 1},
+        {"name": "correct_watch_criteria", "text": "🟢 watch 仅展示 recurrence=1 且 validated=true 的 pattern_key", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 13,
+      "name": "governance-effectiveness-signal",
+      "prompt": "这次只是看了看项目结构，没做什么改动，整理一下",
+      "expected_output": "轻量路径或 Quick 模式。如果检测到变更信号但无操作执行，自检中标注治理有效性。审计日志中 action 包含 no-change-signal-detected（如果适用）。",
+      "assertions": [
+        {"name": "self_check_has_effectiveness", "text": "自检清单包含治理有效性检查项", "weight": 1},
+        {"name": "detects_no_change", "text": "有信号但零操作时正确识别并标注", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 14,
+      "name": "evolution-mark-recurrence3",
+      "prompt": "/curate --deep",
+      "expected_output": "Deep 模式晋升评估中，对 recurrence >= 3 的 pattern_key 检查是否有进化信号（stale后更新、conflicting后resolved、capsule变化、跨工作类型validated）。有信号时记录 evolution 子字段（refined/context/avoid）。审计日志条目包含 evolution 字段。",
+      "assertions": [
+        {"name": "checks_evolution_signals", "text": "对 recurrence >= 3 的 pattern_key 检查4种进化信号", "weight": 2},
+        {"name": "records_evolution_field", "text": "审计日志条目包含 evolution 对象（至少一个子字段：refined/context/avoid）", "weight": 2},
+        {"name": "promotion_uses_evolution", "text": "晋升评估中参考 evolution 标记，有标记的优先考虑", "weight": 1},
+        {"name": "skips_when_no_signal", "text": "无进化信号时不强制填充 evolution 字段", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 15,
+      "name": "blast-radius-preview-gate",
+      "prompt": "这次修改涉及好几个文件，帮我整理",
+      "expected_output": "Step 3 治理执行前计算 blast_radius。medium 级别（3-5文件或>30行）触发预览门限。high 级别（>5文件或>100行）触发预览+策略降级。审计日志条目包含 blast_radius 字段（files/lines/level）。",
+      "assertions": [
+        {"name": "computes_blast_radius", "text": "执行前计算影响范围（文件数和行数）", "weight": 2},
+        {"name": "medium_triggers_preview", "text": "medium 级别触发操作预览（操作计划表）", "weight": 1},
+        {"name": "audit_log_has_blast_radius", "text": "审计日志条目包含 blast_radius 字段", "weight": 2},
+        {"name": "level_classification", "text": "blast_radius.level 为 low/medium/high 之一", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 16,
+      "name": "strategy-tag-classification",
+      "prompt": "刚做了一轮大规模重构，有好几种类型的改动，整理一下",
+      "expected_output": "每个治理动作标注 strategy 标签（repair/optimize/innovate/explore）。审计日志条目包含 strategy 字段。输出摘要按策略标签分组展示变更，而非按操作类型。",
+      "assertions": [
+        {"name": "strategy_field_in_audit", "text": "审计日志每条操作包含 strategy 字段", "weight": 2},
+        {"name": "correct_classification", "text": "strategy 值为 repair/optimize/innovate/explore 之一", "weight": 2},
+        {"name": "summary_by_strategy", "text": "输出摘要按策略标签分组（非按操作类型）", "weight": 1},
+        {"name": "repair_vs_optimize", "text": "删除过时=repair，合并重复=optimize，新增=innovate，缺口扫描=explore", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 17,
+      "name": "plateau-signal-detection",
+      "prompt": "连续几周都在用 uv 管理包，整理一下",
+      "expected_output": "Quick 模式执行后，在进化观察部分输出 ⬜ plateau 区域。对连续>=4次 verified 且无 evolution 变化的 Pattern-Key 标记 stable_plateau。Deep 模式额外检测 success_saturated（连续>=6次 verified 且 proven 且 verified_rate>=80%）。",
+      "assertions": [
+        {"name": "plateau_section_exists", "text": "进化观察包含 ⬜ plateau 区域", "weight": 2},
+        {"name": "stable_plateau_detection", "text": "连续>=4次 verified 且无 evolution 变化的 pattern_key 出现在 plateau 区域", "weight": 2},
+        {"name": "stagnation_signal_expanded", "text": "审计日志 stagnation_signal 字段支持 stable_plateau 和 success_saturated 值", "weight": 1},
+        {"name": "saturated_deep_only", "text": "success_saturated 检测仅在 Deep 模式报告中出现", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 18,
+      "name": "governance-recipe-removed",
+      "prompt": "/curate --deep",
+      "expected_output": "Governance Recipe 机制已从 SKILL.md 移除。Quick Step 3 不再有配方匹配逻辑。Deep Step 5 不再有配方提取逻辑。审计日志字段说明中不再有 recipe 字段。governance-insights.md 仅保留洞见模板。",
+      "assertions": [
+        {"name": "no_recipe_in_quick", "text": "Quick Step 3 不包含配方匹配逻辑", "weight": 2},
+        {"name": "no_recipe_in_deep", "text": "Deep Step 5 不包含配方提取逻辑", "weight": 2},
+        {"name": "no_recipe_field", "text": "审计日志字段说明中没有 recipe 字段", "weight": 1},
+        {"name": "governance_insights_simplified", "text": "governance-insights.md 不包含配方模板", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 19,
+      "name": "audit-pattern-analysis-deep",
+      "prompt": "/curate --deep",
+      "expected_output": "Deep 模式 Step 7 策略有效性之后输出审计模式分析段落（需>=20条历史）。包含三项分析：能力缺口（innovate率高但validated率低的category）、策略漂移（前后半段策略分布差>=30%）、跨类别依赖（共现率>=40%的category对）。历史不足20条时跳过并标注。",
+      "assertions": [
+        {"name": "audit_pattern_section", "text": "Deep Step 7 报告包含审计模式分析段落", "weight": 2},
+        {"name": "capability_gap_detection", "text": "正确识别能力缺口（innovate_rate>40% 且 validated_rate<30%）", "weight": 1},
+        {"name": "strategy_drift_detection", "text": "正确检测策略漂移（前后半段占比差>=30个百分点）", "weight": 1},
+        {"name": "cross_category_dependency", "text": "正确识别跨类别依赖（共现率>=40%）", "weight": 1},
+        {"name": "skip_when_insufficient", "text": "历史<20条时跳过分析并标注原因", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 20,
+      "name": "reference-loading-strategy",
+      "prompt": "我修改了数据库表结构和API接口，整理一下",
+      "expected_output": "Quick 模式。加载 knowledge-matrix + change-matrix（编码变更场景）。不加载 content-matrix、health-scoring、promotion-rules。",
+      "assertions": [
+        {"name": "loads_change_matrix", "text": "加载 change-matrix.md 用于编码变更影响追踪", "weight": 2},
+        {"name": "loads_knowledge_matrix", "text": "加载 knowledge-matrix.md 用于知识类型判断", "weight": 1},
+        {"name": "no_content_matrix", "text": "不加载 content-matrix.md（非内容变更场景）", "weight": 1},
+        {"name": "no_health_scoring", "text": "Quick 模式不加载 health-scoring.md 和 promotion-rules.md", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 21,
+      "name": "two-phase-execution-order",
+      "prompt": "我刚完成了API重构和文档更新，整理一下",
+      "expected_output": "Quick 模式 Step 3 明确分两阶段执行。阶段一（精简）先处理超尺寸和反模式。阶段二（补漏）按 docs/ -> CLAUDE.md -> memory 顺序增量同步。",
+      "assertions": [
+        {"name": "phase1_before_phase2", "text": "精简阶段在补漏阶段之前完成", "weight": 2},
+        {"name": "docs_before_claudemd", "text": "补漏阶段 docs/ 修改先于 CLAUDE.md", "weight": 1},
+        {"name": "memory_last", "text": "memory 修改在 CLAUDE.md 之后", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 22,
+      "name": "neat-freak-editing-principles",
+      "prompt": "我新增了3个路由，同时发现之前的部署文档有过时内容，整理一下",
+      "expected_output": "遵循编辑原则：减优于加（先删过时内容再加新规则）、合并优于追加（新路由合并到现有路由清单而非追加新段落）、删除优于保留（过时内容直接删除）、绝对时间。CLAUDE.md 净涨幅 <= 30 行。",
+      "assertions": [
+        {"name": "reduce_before_add", "text": "先处理过时内容（删/迁）再处理新增内容", "weight": 2},
+        {"name": "merge_not_append", "text": "新路由合并到现有清单，不追加新段落", "weight": 2},
+        {"name": "net_growth_limit", "text": "CLAUDE.md 净涨幅 <= 30 行", "weight": 2},
+        {"name": "no_relative_dates", "text": "不使用相对日期", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 23,
+      "name": "synthesis-scan-with-data",
+      "prompt": "/curate --deep",
+      "expected_output": "Deep 模式 Step 5 晋升评估中，检查是否有符合条件的 Pattern-Key 进行模式蒸馏。无足够数据时标注原因，有数据时输出蒸馏结果。蒸馏结果展示给用户确认后写入 governance-insights.md。",
+      "assertions": [
+        {"name": "attempts_distillation", "text": "检查是否有符合条件的 Pattern-Key 进行蒸馏", "weight": 2},
+        {"name": "graceful_no_data", "text": "无足够数据时不崩溃，输出原因或跳过", "weight": 1},
+        {"name": "distillation_in_report", "text": "Deep 输出包含蒸馏结果段落", "weight": 1}
+      ],
+      "files": []
+    },
+    {
+      "id": 24,
+      "name": "reflection-triggering",
+      "prompt": "/curate --deep",
+      "expected_output": "Deep 模式 Step 7 审计日志写入后，检查反思触发条件（verified占比下降、同类volatile>=3、停滞诊断重复、晋升被拒2+次、saturated>=3）。至少一个条件满足时输出反思段落并写入 curate-history.jsonl（pattern_key='_governance_reflection', action='reflect'）。无触发时不显示反思节。",
+      "assertions": [
+        {"name": "checks_reflection_conditions", "text": "列出或检查反思触发条件", "weight": 2},
+        {"name": "conditional_output", "text": "有触发时输出反思，无触发时不显示此节", "weight": 1},
+        {"name": "reflect_in_history", "text": "反思内容记录到 curate-history.jsonl", "weight": 1}
       ],
       "files": []
     }
