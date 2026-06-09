@@ -1,5 +1,7 @@
 # Curate — Claude Code Knowledge Governance Skill
 
+[中文文档](README_zh.md)
+
 A knowledge governance skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that audits, deduplicates, scores, and promotes knowledge across memory, CLAUDE.md, docs, and all project assets.
 
 ## Features
