@@ -2,50 +2,66 @@
 
 [中文文档](README_zh.md)
 
-A knowledge governance skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that audits, deduplicates, scores, and promotes knowledge across memory, CLAUDE.md, docs, and all project assets.
+A knowledge governance skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that keeps your project knowledge base clean, accurate, and maintainable across sessions.
 
-## The Problem
+## Background
 
-Every Claude Code session adds memories, decisions, and context files. Nothing retires the old ones.
+Claude Code uses several mechanisms to persist knowledge across sessions: memory files (under `~/.claude/projects/`), project-level `CLAUDE.md`, and documentation files. Each session can add new memories, update decisions, and modify documentation.
 
-Over time your knowledge base becomes a liability — duplicated entries, outdated decisions, bloated MEMORY.md files that exceed their line limits. The AI reads stale context and makes worse decisions. Manual cleanup is tedious and inconsistent.
+Over time this leads to problems:
 
-**Curate treats knowledge as a living asset with a full lifecycle**, not a dump-and-forget log.
+- **Duplication**: Different sessions save similar information in slightly different wording across multiple memory files
+- **Staleness**: Decisions and technical notes from weeks ago no longer reflect the current state of the project
+- **Bloat**: MEMORY.md index files exceed their line limits, individual memories grow beyond recommended sizes
+- **Scattered knowledge**: The same topic exists as a memory, a CLAUDE.md entry, and a doc — with no coordination between them
 
-## What Makes Curate Different
+None of this is catastrophic, but it degrades the quality of context Claude receives in future sessions. Bad context leads to worse suggestions.
 
-### Health Scoring That Learns
+## What Curate Does
 
-Each knowledge asset gets a health score based on freshness, reference frequency, and accuracy. The scoring model evolves — governance decisions feed back into future evaluations. The more you use curate, the better it gets at identifying what's worth keeping.
+Curate is a skill you run after a work session (or periodically) that reviews all knowledge assets and applies governance actions:
 
-### Pattern-Key Deduplication
+| Action | What It Means |
+|--------|--------------|
+| **Dedup** | Find semantically similar knowledge entries across files, merge them into one |
+| **Update** | Refresh entries that no longer match the current project state |
+| **Retire** | Remove or archive entries that are no longer relevant |
+| **Promote** | Move frequently-referenced knowledge to higher-visibility locations (e.g., memory → CLAUDE.md) |
+| **Demote** | Move rarely-used knowledge out of high-visibility locations to reduce clutter |
 
-Not string matching. Curate detects semantically duplicated knowledge across different files and memory entries, then proposes merges that preserve the strongest version. Three similar memories become one.
+Each action is logged with a reason, so you can review what changed and why.
 
-### Knowledge Promotion
+## Dual Mode
 
-Frequently-referenced project memories automatically get promoted to CLAUDE.md for higher visibility. Low-value CLAUDE.md entries get demoted back. Knowledge flows to where it's most useful.
+### Quick Mode (5 steps)
 
-### Dual-Mode Governance
+Run after any session. Low overhead, focuses on changes from the current conversation:
 
-| | Quick Mode | Deep Mode |
-|---|---|---|
-| **When** | After every session | Periodic full audit |
-| **Steps** | 5 | 7 |
-| **Scope** | Changes this session | Full knowledge base |
-| **Extra** | — | Health scoring, deep dedup, promotion evaluation |
+1. **Size check** — Measure MEMORY.md and individual memory sizes against limits
+2. **Identify changes** — Detect what knowledge was added or modified this session
+3. **Govern** — Apply dedup, update, retire, promote/demote as needed
+4. **Self-check** — Verify all edits comply with size and format rules
+5. **Audit log** — Record each action with rationale
 
-Quick mode adds near-zero overhead. Deep mode runs when you explicitly request it or when the skill detects enough accumulated drift.
+### Deep Mode (7 steps)
 
-### Hardened Against Edge Cases
+Run periodically (e.g., weekly or after major milestones). Everything in Quick mode, plus:
 
-12 scenario-based test fixtures covering real-world failures:
+- **Health scoring** — Each knowledge asset gets a numerical score based on freshness (how recently verified), accuracy (does it match current code), and utility (how often referenced)
+- **Deep dedup** — Full cross-file scan instead of session-scoped detection
+- **Promotion evaluation** — Systematic review of which knowledge should move up or down in visibility
 
-- Corrupt governance history → graceful recovery
-- Missing memory directory → bootstrap from scratch
-- Monorepo with multiple CLAUDE.md files → scoped governance
-- Large projects with 200+ memory entries → size-aware pruning
-- Cross-project knowledge sync → dedup across boundaries
+The health scoring model improves over time: past governance decisions feed back into the scoring algorithm, so the system learns which types of knowledge tend to become stale quickly and which hold their value.
+
+## When to Use
+
+| Trigger | Mode |
+|---------|------|
+| End of a productive session | Quick |
+| `/curate` command | Quick |
+| `/curate deep` command | Deep |
+| "整理一下" / "curate" / "sync up" / "归档" | Quick |
+| Weekly cleanup, post-milestone | Deep |
 
 ## Installation
 
@@ -57,30 +73,6 @@ cp -r . ~/.claude/skills/curate/
 cp -r . /your-project/.claude/skills/curate/
 ```
 
-## Usage
-
-```
-/curate          # Quick mode — session wrap-up
-/curate deep     # Deep mode — full audit with scoring
-```
-
-Or natural language: `整理一下` / `curate` / `sync up` / `归档` / `治理一下`
-
-### Quick Mode (5 Steps)
-
-1. **Size Check** — Measure knowledge assets, flag bloat
-2. **Identify Changes** — Detect what changed this session
-3. **Execute Governance** — Update, merge, retire, promote
-4. **Self-Check** — Validate all edits against size limits
-5. **Audit Log** — Record every decision with rationale
-
-### Deep Mode (7 Steps)
-
-Adds on top of Quick:
-- **Health Scoring** — Quantitative quality assessment per asset
-- **Deep Dedup Scan** — Cross-file semantic duplicate detection
-- **Promotion Evaluation** — Identify candidates for CLAUDE.md promotion/demotion
-
 ## Project Structure
 
 ```
@@ -88,30 +80,61 @@ curate/
 ├── SKILL.md                  # Skill definition (564 lines)
 ├── evals/
 │   ├── evals.json            # Evaluation criteria
-│   └── fixtures/hardening/   # 12 scenario-based test cases
+│   └── fixtures/hardening/   # 12 test scenarios
 ├── references/               # 10 reference docs loaded on demand
-│   ├── anti-patterns.md      #   Anti-pattern detection rules
-│   ├── health-scoring.md     #   Scoring algorithm
-│   ├── evolution-rules.md    #   Knowledge evolution logic
-│   ├── pattern-keys.md       #   Dedup key definitions
-│   ├── knowledge-matrix.md   #   Knowledge type taxonomy
-│   └── ...                   #   + 5 more
-├── scripts/                  # Validation & analysis tools
-│   ├── test-curate-hardening.js
-│   ├── validate-curate.js
-│   └── analyze-curate-history.js
+│   ├── health-scoring.md     # Scoring algorithm specification
+│   ├── pattern-keys.md       # Dedup key definitions
+│   ├── evolution-rules.md    # Knowledge evolution rules
+│   ├── anti-patterns.md      # Anti-pattern detection
+│   ├── knowledge-matrix.md   # Knowledge type taxonomy
+│   ├── audit-fields.md       # Audit log field definitions
+│   ├── change-matrix.md      # Change detection rules
+│   ├── content-matrix.md     # Content type classification
+│   ├── deep-output-format.md # Deep mode output format
+│   └── governance-insights.md# Governance decision heuristics
+├── scripts/
+│   ├── test-curate-hardening.js  # Run 12 test scenarios
+│   ├── validate-curate.js        # Validate SKILL.md structure
+│   └── analyze-curate-history.js # Analyze governance history
 └── assets/
     └── governance-insights.md
 ```
 
-## Key Configuration Parameters
+### Test Scenarios
+
+The 12 hardening scenarios in `evals/fixtures/hardening/` cover real edge cases encountered during development:
+
+| Scenario | What It Tests |
+|----------|--------------|
+| Quick content change | Governance after a content-writing session |
+| Quick code change | Governance after a coding session |
+| Output index only | Only output files changed, no knowledge impact |
+| Lightweight noop | Session with no meaningful knowledge changes |
+| Deep with known history | Deep mode with existing governance history |
+| Corrupt history | Recovery when governance log is malformed |
+| Missing memory | Bootstrap when memory directory doesn't exist |
+| Monorepo CLAUDE.md | Multiple CLAUDE.md files in subdirectories |
+| Large project | 200+ memory entries, size-aware processing |
+| Anti-pattern cleanup | Detecting and fixing knowledge anti-patterns |
+| Cross-project sync | Dedup across project boundaries |
+| Quick evolution boundary | Edge cases in evolution analysis cutoff |
+
+## Configuration
+
+Key parameters in `SKILL.md`:
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
-| MEMORY.md line limit | 200 | Prevents index bloat |
-| Individual memory size | ≤8KB | Prevents single-entry domination |
-| Evolution analysis | Quick: capped / Deep: unlimited | Controls analysis depth |
+| MEMORY.md line limit | 200 | Keeps the index readable |
+| Individual memory size | ≤8KB | Prevents single entries from dominating |
 | Trigger phrases | Customizable | Both English and Chinese |
+
+## Testing
+
+```bash
+node scripts/test-curate-hardening.js
+node scripts/validate-curate.js
+```
 
 ## License
 

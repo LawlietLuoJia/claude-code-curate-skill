@@ -2,82 +2,76 @@
 
 [English](README.md)
 
-面向 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 的知识治理技能——审计、去重、评分、晋升你的知识资产（memory、CLAUDE.md、docs 等）。
+面向 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 的知识治理技能，让项目的知识库在多个会话之间保持干净、准确、可维护。
 
-## 核心问题
+## 背景
 
-每次 Claude Code 会话都会产生新的记忆、决策和上下文文件，但从来没有任何机制清理旧的。
+Claude Code 通过多种机制跨会话持久化知识：memory 文件（`~/.claude/projects/` 下）、项目级 `CLAUDE.md`、以及文档文件。每次会话都可能新增记忆、更新决策、修改文档。
 
-久而久之，知识库从资产变成负债——重复条目、过时决策、膨胀的 MEMORY.md 超出行数限制。AI 读到过时上下文，做出更差的判断。手动清理既繁琐又不一致。
+时间一长就产生了问题：
 
-**Curate 把知识当作有完整生命周期的活资产来管理**，而不是存了就忘的日志。
+- **重复**：不同会话用略有不同的措辞把类似的信息存在多个 memory 文件中
+- **过时**：几周前的决策和技术笔记已不再反映项目的当前状态
+- **膨胀**：MEMORY.md 索引文件超出行数限制，单个 memory 超出推荐大小
+- **分散**：同一个主题同时存在于 memory、CLAUDE.md 和文档中，彼此没有协调
 
-## 核心能力
+这些不会导致灾难性后果，但会持续降低 Claude 在后续会话中收到的上下文质量。上下文质量差，建议质量就差。
 
-### 越用越准的健康评分
+## Curate 做什么
 
-每个知识资产获得基于新鲜度、引用频率和准确性的健康评分。评分模型会进化——治理决策反馈到未来评估中。你用得越多，curate 越能精准判断什么值得保留。
+Curate 是一个在工作会话结束（或定期）时运行的技能，它审查所有知识资产并执行治理操作：
 
-### 模式键去重
+| 操作 | 含义 |
+|------|------|
+| **去重** | 跨文件找到语义相似的知识条目，合并为一个 |
+| **更新** | 刷新与项目当前状态不符的条目 |
+| **退役** | 移除或归档不再相关的条目 |
+| **晋升** | 将频繁引用的知识移到可见度更高的位置（如 memory → CLAUDE.md） |
+| **降级** | 将很少使用的知识从高可见度位置移出，减少干扰 |
 
-不是字符串匹配。Curate 检测跨文件、跨 memory 条目的语义重复，然后提出保留最强版本的合并建议。三条相似记忆合并为一条。
+每个操作都记录了理由，方便你事后审查改了什么、为什么改。
 
-### 知识晋升
+## 双模式
 
-被频繁引用的项目 memory 自动晋升到 CLAUDE.md 获得更高可见度。低价值的 CLAUDE.md 条目降级回去。知识流向它最有用的地方。
+### Quick 模式（5 步）
 
-### 双模式治理
+在任何会话后运行。开销低，聚焦于当前会话的变更：
 
-| | Quick 模式 | Deep 模式 |
-|---|---|---|
-| **何时** | 每次会话后 | 定期全量审计 |
-| **步骤** | 5 步 | 7 步 |
-| **范围** | 本次会话变更 | 全部知识资产 |
-| **额外** | — | 健康评分、深度去重、晋升评估 |
+1. **尺寸检查** — 测量 MEMORY.md 和单个 memory 的尺寸，检查是否超限
+2. **识别变更** — 检测本次会话新增或修改了哪些知识
+3. **治理** — 按需执行去重、更新、退役、晋升/降级
+4. **自检** — 验证所有编辑符合尺寸和格式规则
+5. **审计日志** — 记录每个操作及理由
 
-Quick 模式几乎零开销。Deep 模式在显式请求或检测到足够积累的偏移时触发。
+### Deep 模式（7 步）
 
-### 12 个加固场景覆盖边界情况
+定期运行（如每周或重大里程碑后）。包含 Quick 模式的全部内容，额外增加：
 
-- 治理历史损坏 → 优雅恢复
-- Memory 目录缺失 → 从零引导
-| Monorepo 多个 CLAUDE.md → 作用域隔离治理
-- 大型项目 200+ memory 条目 → 尺寸感知剪裁
-- 跨项目知识同步 → 跨边界去重
+- **健康评分** — 每个知识资产获得数值分数，基于新鲜度（最近一次验证的时间）、准确性（是否匹配当前代码）、实用性（被引用频率）
+- **深度去重** — 全量跨文件扫描，而非仅检测当前会话范围
+- **晋升评估** — 系统性审查哪些知识应该在可见度层级中上移或下移
+
+健康评分模型会随时间改善：过去的治理决策反馈到评分算法中，系统会学习哪类知识容易过时、哪类知识保值期长。
+
+## 何时使用
+
+| 触发方式 | 模式 |
+|---------|------|
+| 产出了内容的工作会话结束 | Quick |
+| `/curate` 命令 | Quick |
+| `/curate deep` 命令 | Deep |
+| "整理一下" / "curate" / "sync up" / "归档" | Quick |
+| 每周清理、里程碑后 | Deep |
 
 ## 安装
 
 ```bash
-# 全局安装（所有项目可用）
+# 全局（所有项目可用）
 cp -r . ~/.claude/skills/curate/
 
-# 项目级安装
+# 项目级
 cp -r . /your-project/.claude/skills/curate/
 ```
-
-## 使用方式
-
-```
-/curate          # Quick 模式 — 会话收尾
-/curate deep     # Deep 模式 — 全量审计 + 评分
-```
-
-自然语言触发：`整理一下` / `curate` / `sync up` / `归档` / `治理一下`
-
-### Quick 模式（5 步）
-
-1. **尺寸体检** — 检测知识资产尺寸，标记膨胀
-2. **识别变更** — 检测本次会话的变更
-3. **执行治理** — 更新、合并、退役、晋升
-4. **自检** — 验证所有编辑符合尺寸限制
-5. **审计日志** — 记录每个决策及理由
-
-### Deep 模式（7 步）
-
-在 Quick 模式基础上增加：
-- **健康评分** — 每个资产的量化质量评估
-- **深度去重扫描** — 跨文件语义重复检测
-- **晋升评估** — 识别 CLAUDE.md 晋升/降级候选
 
 ## 项目结构
 
@@ -86,30 +80,61 @@ curate/
 ├── SKILL.md                  # Skill 定义（564 行）
 ├── evals/
 │   ├── evals.json            # 评估标准
-│   └── fixtures/hardening/   # 12 个场景化测试用例
-├── references/               # 10 个运行时按需加载的参考文档
-│   ├── anti-patterns.md      #   反模式检测规则
-│   ├── health-scoring.md     #   评分算法
-│   ├── evolution-rules.md    #   知识进化逻辑
-│   ├── pattern-keys.md       #   去重键定义
-│   ├── knowledge-matrix.md   #   知识类型分类法
-│   └── ...                   #   + 5 个
-├── scripts/                  # 验证与分析工具
-│   ├── test-curate-hardening.js
-│   ├── validate-curate.js
-│   └── analyze-curate-history.js
+│   └── fixtures/hardening/   # 12 个测试场景
+├── references/               # 10 个按需加载的参考文档
+│   ├── health-scoring.md     # 评分算法规格
+│   ├── pattern-keys.md       # 去重键定义
+│   ├── evolution-rules.md    # 知识进化规则
+│   ├── anti-patterns.md      # 反模式检测
+│   ├── knowledge-matrix.md   # 知识类型分类法
+│   ├── audit-fields.md       # 审计日志字段定义
+│   ├── change-matrix.md      # 变更检测规则
+│   ├── content-matrix.md     # 内容类型分类
+│   ├── deep-output-format.md # Deep 模式输出格式
+│   └── governance-insights.md# 治理决策启发规则
+├── scripts/
+│   ├── test-curate-hardening.js  # 运行 12 个测试场景
+│   ├── validate-curate.js        # 验证 SKILL.md 结构
+│   └── analyze-curate-history.js # 分析治理历史
 └── assets/
     └── governance-insights.md
 ```
 
+### 测试场景
+
+`evals/fixtures/hardening/` 中的 12 个加固场景覆盖了开发过程中遇到的真实边界情况：
+
+| 场景 | 测试内容 |
+|------|---------|
+| Quick content change | 内容写作会话后的治理 |
+| Quick code change | 编码会话后的治理 |
+| Output index only | 只有输出文件变化，无知识影响 |
+| Lightweight noop | 会话没有实质性知识变更 |
+| Deep with known history | 有历史记录时的 Deep 模式 |
+| Corrupt history | 治理日志格式损坏时的恢复 |
+| Missing memory | Memory 目录不存在时的引导 |
+| Monorepo CLAUDE.md | 子目录中存在多个 CLAUDE.md |
+| Large project | 200+ memory 条目，需尺寸感知处理 |
+| Anti-pattern cleanup | 检测和修复知识反模式 |
+| Cross-project sync | 跨项目边界的去重 |
+| Quick evolution boundary | 进化分析边界的边界情况 |
+
 ## 关键配置
+
+`SKILL.md` 中的关键参数：
 
 | 参数 | 默认值 | 用途 |
 |------|--------|------|
-| MEMORY.md 行数限制 | 200 | 防止索引膨胀 |
+| MEMORY.md 行数限制 | 200 | 保持索引可读 |
 | 单个 memory 大小 | ≤8KB | 防止单条目占主导 |
-| 进化分析深度 | Quick: 受限 / Deep: 无限 | 控制分析深度 |
 | 触发短语 | 可自定义 | 中英双语 |
+
+## 测试
+
+```bash
+node scripts/test-curate-hardening.js
+node scripts/validate-curate.js
+```
 
 ## 许可证
 
