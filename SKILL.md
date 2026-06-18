@@ -1,6 +1,6 @@
 ---
 name: curate
-version: 1.0.0
+version: 1.0.1
 description: >
   Knowledge governance skill — audits, deduplicates, scores, and promotes knowledge across
   memory, CLAUDE.md, docs, and all project assets. Learns from history via health scoring,

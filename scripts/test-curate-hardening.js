@@ -29,6 +29,13 @@ function validateSkillHardening() {
   requireText('SKILL.md', 'Deep 前置信号', 'Quick must explicitly assess Deep prerequisite signals');
   requireText('SKILL.md', '不适用时在摘要中写明', 'Quick must explain absent optional signals');
   requireText('SKILL.md', '不能静默跳过', 'Quick cannot silently skip optional signal judgment');
+  // v1.0 反膨胀硬门（neat-freak 融合核心目标）—— pin 防回归
+  requireText('SKILL.md', '25KB', 'MEMORY.md byte hard-gate');
+  requireText('SKILL.md', 'wc -c', 'byte-level MEMORY.md measurement');
+  requireText('SKILL.md', '静默', 'Claude Code silent-truncation rationale');
+  requireText('references/health-scoring.md', '25KB', 'byte hard-gate in 精简性 scoring');
+  requireText('references/health-scoring.md', '体量倒挂', 'size-inversion Deep weak signal');
+  requireText('references/health-scoring.md', '毕业债务', 'graduation-debt marker');
   requireNoText('SKILL.md', '知识总量（总行数/总文件数）≤ 整理前', 'over-strict total knowledge cap');
 }
 

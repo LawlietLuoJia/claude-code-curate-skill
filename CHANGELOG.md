@@ -2,6 +2,16 @@
 
 本文件记录 curate（Claude Code 知识治理 skill）的版本变更。版本号遵循语义化版本（SemVer）。
 
+## [1.0.1] — 2026-06-18
+
+### 修复
+- **修正审计日志损坏记录**：`curate-history.jsonl:362` 的 `action:"optimize"` 违反枚举（optimize 属 strategy 不属 action），导致 `validate-curate.js` 失败。该记录实际动作是"压缩 MEMORY.md 冗余子条目 151→147 行"（即去冗余），改为 `action:"dedup"`，保留 `strategy:"optimize"`。`validate-curate.js` 现通过（ok:true，0 errors）。
+
+### 测试
+- **锁定 v1.0 反膨胀硬门契约**：`test-curate-hardening.js` 新增 6 条 requireText，pin 住本次核心目标防回归——SKILL.md 的 `25KB` 字节硬门 / `wc -c` 字节实测 / `静默`截断说明，health-scoring.md 的 `25KB` 评分硬门 / `体量倒挂` Deep 弱信号 / `毕业债务` 标记。requireText 总数 14→20。
+
+> 触发：v1.0.0 验收评审指出主校验失败 + 新规则无测试契约保护。本版补齐。
+
 ## [1.0.0] — 2026-06-18
 
 首个正式语义化版本发布。以本地 darwin 优化血脉为权威，合并远程 README/LICENSE，确立版本机制（此前本地与远程为无关历史，本次以本地为权威统一）。
