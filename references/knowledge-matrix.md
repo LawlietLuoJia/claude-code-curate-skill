@@ -88,6 +88,22 @@
 | **晋升路径** | memory/ → CLAUDE.md |
 | **治理重点** | 完整性 + 变更影响追踪 |
 
+## 与 Pattern-Key 类别映射
+
+知识类型负责"放哪里、怎么治理"；Pattern-Key 类别负责"如何稳定去重和追踪"。两者不是一一同名，但必须可映射。
+
+| 知识矩阵类型 | 默认 Pattern-Key 类别 | 可选类别 | 说明 |
+|---|---|---|---|
+| 领域知识 | `domain` | `format` | 术语、法规、行业规则用 domain；格式规范用 format |
+| 项目决策 | `decision` | `project` | 有取舍理由用 decision；稳定项目事实用 project |
+| 工具经验 | `tool` | `skill` | 外部工具用 tool；Agent skill 使用心得用 skill |
+| 产出索引 | `project` | `format` | 版本、清单、交付状态用 project；模板/格式索引用 format |
+| 流程规范 | `workflow` | `skill` | 项目流程用 workflow；可复用 skill 流程用 skill |
+| 个人洞察 | `insight` | `domain` | 判断和方法论用 insight；已固化为领域事实后可转 domain |
+| 编码知识 | `code` | `tool` / `project` | 代码约束用 code；依赖工具经验用 tool；项目事实用 project |
+
+治理时先按知识矩阵判断受众与落点，再按 Pattern-Key 类别生成稳定键。若两者冲突，以受众和落点为准，同时在审计日志 detail 中说明分类理由。
+
 ## 跨类型交互
 
 不同知识类型之间可能存在关联：
